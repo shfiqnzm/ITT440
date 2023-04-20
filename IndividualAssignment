@@ -1,0 +1,74 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <string.h>
+#include <errno.h>
+
+
+void sigint_handler(int sig);
+
+int main()
+{
+    int i, pid, fd[2],n;
+    char message[200];
+
+    if (pipe(fd) == -1) {
+        printf("Pipe creation error");
+        return 1;
+    }
+
+    if(signal(SIGINT, sigint_handler) == SIG_ERR){
+        perror("signal");
+        exit(1);
+}
+
+
+    printf("Input message to child proccess: ");
+    fgets(message, 200, stdin);
+    fflush(stdout);
+
+    message[strlen(message) - 1] = '\0';
+    n=strlen(message) +1;
+
+    printf("\nCreating 3 child process from same parent\n(buffer time just to test interrupt)\n\n");
+    fflush(stdout);
+
+    sleep(1);
+
+    for (i = 0; i < 3; i++) {
+        pid = fork();
+        if (pid == -1) {
+            printf("Child creation error");
+            return 2;
+        }
+        else if (pid == 0) {
+            close(fd[1]);
+            read(fd[0], &n, sizeof(int));
+            read(fd[0], message, sizeof(char) *n);
+            printf("Child process PID: %d received message: %s\n", getpid(), message);
+            fflush(stdout);
+            exit(0);
+        }
+        else {
+            printf("Parent process PID: %d created child process PID %d\n", getpid(), pid);
+            fflush(stdout);
+            close(fd[0]);
+            write(fd[1], message, sizeof(int));
+        }
+    }
+
+   while (i > 0) {
+        wait(NULL);
+        i--;
+   }
+
+    return 0;
+}
+
+void sigint_handler(int sig){
+printf("\n!!!!!!!!!PROGRAM INTERRUPTED!!!!!!!!!\n");
+exit(1);
+}
+
